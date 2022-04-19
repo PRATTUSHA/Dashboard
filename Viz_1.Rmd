@@ -1,0 +1,169 @@
+---
+title: "World Population Analysis, 1961-2020"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+runtime : shiny
+---
+
+```{r setup, include=FALSE}
+
+library(flexdashboard)
+library(tidyverse)
+library(plotly)
+library(ggplot2)
+library(dplyr)
+library(shiny)
+
+# Reading data file
+#pop_data <- read_csv("C:/Users/Prattusha.Banerjee/Desktop/DIGITAL/DS/Visualisation/ASSESSMENT3/Assessment 3/data/population.csv", skip= 4)
+
+pop_data <- read_csv("population.csv", skip= 4)
+
+colnames(pop_data)[1:4] <- c("Country", "Country_Code", "Indicator_Name", "Indicator_Code")
+
+pop_data <- subset(pop_data, select =  - `1960`)
+
+pop_data <- subset(pop_data, Country_Code != "INX")
+
+
+pop_data_world <- pop_data %>%
+  filter(Country == "World")
+
+#pop_data <- subset(pop_data, select = -(Country_Code))
+
+pop_F <- pop_data %>% 
+  pivot_longer(c(`1961`: `2020`, ), names_to = "Year", values_to = "Population_growth_rate")
+
+pop_F$Year  <- as.numeric(pop_F$Year)
+
+pop_F$Country <- as.character(pop_F$Country)
+
+pop_F$Population_growth_rate   <- round(pop_F$Population_growth_rate, 3)
+
+
+```
+
+Dash {data-icon="fa-globe"}
+=======================================================================
+
+
+Row {data-width=150}
+--------------------------------------
+
+### Total Countries {.value-box}
+
+```{r totalcountries}
+
+TOT_CNTR <- nrow(pop_data)
+
+renderValueBox({
+
+valueBox(TOT_CNTR,icon = "fa-flag",caption = "Total Countries",color = "green")
+
+})
+
+```
+
+### World population growth rate (%) {.value-box}
+
+```{r world population}
+
+wpop <- round(pop_data_world$`2020`,3)
+
+
+renderValueBox({
+
+valueBox(wpop,icon = "fa-users",caption = "World population growth rate in 2020", color = "orange")
+
+})
+
+```
+
+### Total Years {.value-box}
+
+```{r total years}
+min <- as.numeric(min(pop_F$Year))
+max <- as.numeric(max(pop_F$Year))
+
+year_of_calc <- (max - min)
+
+renderValueBox({
+
+valueBox(year_of_calc,icon = "fa-calendar",caption = "Range of years ", color = "coral")
+
+})
+
+```
+
+
+
+Column {data-width=500 data-height=100 .tabset}
+-----------------------------------------------------------------------
+
+
+### Population growth by Country
+
+```{r fig.height=1, fig.width=3}
+
+pop_F <- subset(pop_F, Country!= "World")
+
+unique_Country <- pop_F %>% .$Country %>% unique %>% sort
+# selectInput("Country", label = h4("Please select a Country from the dropdown below:"),
+#     choices = unique_Country, selected = unique_Country[1],
+#     multiple = T)
+
+selectInput("Country", label = h4("Please select a Country from the dropdown below:"),
+    choices = unique_Country)
+
+pop_data_world <- pop_data_world %>% 
+  pivot_longer(c(`1961`: `2020`, ), names_to = "Year", values_to = "Population_growth_rate")
+
+
+
+renderPlotly({
+  ggplotly(
+   ggplot((pop_F %>% filter(Country == input$Country)), aes(x = Year, y = Population_growth_rate)) +
+      geom_line() +
+      geom_point(colour = "blue")+
+      theme(plot.margin = margin(2,.8,2,.8, "cm"),
+      plot.background = element_rect(fill = "white"))+
+      labs(title = "Annual population growth rate for the selected country", x = " Year", y = " Population growth rate")+
+      theme(text = element_text(size=12),
+      axis.text.x = element_text(angle=0, hjust=0))
+)
+})
+
+```
+
+
+### Population growth by year
+
+```{r fig.height=3, fig.width=5}
+
+  unique_Year <- pop_F %>% .$Year %>% unique %>% sort
+
+  
+  selectInput("Year", label = h4("Please select a Year from the dropdown below:"),
+    choices = unique_Year)
+  
+
+
+renderPlotly({
+  ggplotly(
+   ggplot((pop_F %>% filter(Year == input$Year)), aes(x = reorder(Country, Population_growth_rate), y = Population_growth_rate))+
+      geom_bar(stat = "identity", colour = "white", fill = "orange" ) +
+      labs(title = "Annual population growth of all the countries for selected year", x = " Country", y = " Population growth rate")+
+      theme(plot.margin = margin(2,.8,2,.8, "cm"),
+      plot.background = element_rect(fill = "white"))+
+      theme(text = element_text(size=8),
+      axis.text.x = element_text(angle=90, hjust=0))
+
+)
+})
+
+```
+
+
+
